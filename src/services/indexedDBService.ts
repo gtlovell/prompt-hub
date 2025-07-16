@@ -83,6 +83,45 @@ export const createProject = async (
   return newProject;
 };
 
+export const deleteProject = async (projectId: string): Promise<void> => {
+  const db = await initDB();
+  const tx = db.transaction(
+    ["projects", "folders", "prompts", "prompt_versions"],
+    "readwrite"
+  );
+
+  // Delete project
+  await tx.objectStore("projects").delete(projectId);
+
+  // Find and delete folders
+  const foldersToDelete = await tx
+    .objectStore("folders")
+    .index("by-project")
+    .getAllKeys(projectId);
+  for (const folderId of foldersToDelete) {
+    await tx.objectStore("folders").delete(folderId);
+  }
+
+  // Find and delete prompts and their versions
+  const promptsToDelete = await tx
+    .objectStore("prompts")
+    .index("by-project")
+    .getAll(projectId);
+  for (const prompt of promptsToDelete) {
+    await tx.objectStore("prompts").delete(prompt.id);
+    // Delete all versions of the prompt
+    const versionsToDelete = await tx
+      .objectStore("prompt_versions")
+      .index("by-prompt")
+      .getAllKeys(prompt.id);
+    for (const versionId of versionsToDelete) {
+      await tx.objectStore("prompt_versions").delete(versionId);
+    }
+  }
+
+  await tx.done;
+};
+
 // Folder functions
 export const getAllFolders = async (): Promise<Folder[]> => {
   const db = await initDB();

@@ -185,7 +185,7 @@ const PromptEditorModal: React.FC<PromptEditorModalProps> = ({
           </button>
         </header>
 
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* Main Editor */}
           <main className="flex-1 p-6 flex flex-col gap-6 overflow-y-auto">
             <input
@@ -206,7 +206,7 @@ const PromptEditorModal: React.FC<PromptEditorModalProps> = ({
           </main>
 
           {/* Settings Sidebar */}
-          <aside className="w-80 rounded-xl border-zinc-700 p-6 flex flex-col gap-6 overflow-y-auto bg-black mr-4">
+          <aside className="w-full md:w-80 rounded-xl border-zinc-700 p-6 flex flex-col gap-6 overflow-y-auto bg-black md:mr-4">
             <div>
               <h3 className="text-sm font-semibold text-zinc-400 mb-2">
                 Model Settings

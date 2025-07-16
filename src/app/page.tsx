@@ -16,6 +16,7 @@ import {
   createFolder,
   updateFolder,
   deleteFolder,
+  deleteProject,
   getAllFolders,
   getAllTags,
   getAllPrompts,
@@ -38,8 +39,10 @@ export default function Home() {
 
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isProjectModalOpen, setProjectModalOpen] = useState(false);
   const [isFeedbackModalOpen, setFeedbackModalOpen] = useState(false);
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -156,6 +159,11 @@ export default function Home() {
     setProjectModalOpen(true);
   };
 
+  const handleEditProject = (project: Project) => {
+    setEditingProject(project);
+    setProjectModalOpen(true);
+  };
+
   const handleEditFolder = (folder: Folder) => {
     setEditingFolder(folder);
   };
@@ -164,7 +172,12 @@ export default function Home() {
     setEditingPrompt(null);
     setProjectModalOpen(false);
     setEditingFolder(null);
+    setEditingProject(null);
     setFeedbackModalOpen(false);
+  };
+
+  const handleToggleSidebar = () => {
+    setSidebarOpen(!isSidebarOpen);
   };
 
   const handleCreatePrompt = () => {
@@ -198,6 +211,20 @@ export default function Home() {
     const newProject = await createProject(project);
     setProjects((prevProjects) => [...prevProjects, newProject]);
     setSelectedProjectId(newProject.id);
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    setLoading(true);
+    await deleteProject(projectId);
+    const updatedProjects = projects.filter((p) => p.id !== projectId);
+    setProjects(updatedProjects);
+    if (selectedProjectId === projectId) {
+      setSelectedProjectId(
+        updatedProjects.length > 0 ? updatedProjects[0].id : null
+      );
+    }
+    setLoading(false);
+    handleCloseModal();
   };
 
   const handleSavePrompt = async (updatedPrompt: Prompt, newTags: Tag[]) => {
@@ -297,12 +324,15 @@ export default function Home() {
         selectedFolderId={selectedFolderId}
         onSelectFolder={handleSelectFolder}
         onAddProject={handleAddProject}
+        onEditProject={handleEditProject}
         onAddFolder={handleCreateFolder}
         onEditFolder={handleEditFolder}
         onToggleFolderFavorite={handleToggleFolderFavorite}
         onShowAllPrompts={handleShowAllPrompts}
         showingAllPrompts={showingAllPrompts}
         onOpenFeedbackModal={handleOpenFeedbackModal}
+        isOpen={isSidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
       <main className="flex-1 flex flex-col overflow-hidden">
         {loading ? (
@@ -320,6 +350,7 @@ export default function Home() {
             onSelectTag={handleSelectTag}
             selectedTagId={selectedTagId}
             showingAllPrompts={showingAllPrompts}
+            onToggleSidebar={handleToggleSidebar}
           />
         )}
       </main>
@@ -338,6 +369,8 @@ export default function Home() {
         isOpen={isProjectModalOpen}
         onClose={handleCloseModal}
         onSave={handleSaveProject}
+        onDelete={handleDeleteProject}
+        project={editingProject}
       />
 
       <FolderEditorModal

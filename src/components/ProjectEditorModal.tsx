@@ -6,7 +6,8 @@ interface ProjectEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (project: Omit<Project, "id">) => void;
-  project?: Omit<Project, "id"> | null;
+  onDelete?: (projectId: string) => void;
+  project?: Project | null;
 }
 
 const colors = [
@@ -25,6 +26,7 @@ const ProjectEditorModal: React.FC<ProjectEditorModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  onDelete,
   project,
 }) => {
   const [name, setName] = useState("");
@@ -46,6 +48,13 @@ const ProjectEditorModal: React.FC<ProjectEditorModalProps> = ({
   const handleSave = () => {
     onSave({ name, description, color });
     onClose();
+  };
+
+  const handleDelete = () => {
+    if (project && onDelete) {
+      onDelete(project.id);
+      onClose();
+    }
   };
 
   return (
@@ -113,20 +122,33 @@ const ProjectEditorModal: React.FC<ProjectEditorModalProps> = ({
                 ))}
               </div>
             </div>
-            <div className="mt-6 flex justify-end space-x-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-md border border-zinc-600 px-4 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-700"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
-              >
-                Save
-              </button>
+            <div className="mt-6 flex justify-between items-center">
+              <div>
+                {project && onDelete && (
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    className="rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+              <div className="flex justify-end space-x-4">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-md border border-zinc-600 px-4 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+                >
+                  Save
+                </button>
+              </div>
             </div>
           </form>
         </Dialog.Panel>

@@ -10,6 +10,7 @@ import {
   Plus,
   FolderKanban as ProjectIcon,
   Folder as FolderIcon,
+  Menu,
 } from "lucide-react";
 
 interface PromptListProps {
@@ -22,6 +23,7 @@ interface PromptListProps {
   onSelectTag: (tagId: string | null) => void;
   selectedTagId: string | null;
   showingAllPrompts: boolean;
+  onToggleSidebar: () => void;
 }
 
 const PromptList: React.FC<PromptListProps> = ({
@@ -34,6 +36,7 @@ const PromptList: React.FC<PromptListProps> = ({
   onSelectTag,
   selectedTagId,
   showingAllPrompts,
+  onToggleSidebar,
 }) => {
   const getBreadcrumbs = () => {
     if (showingAllPrompts) {
@@ -68,11 +71,16 @@ const PromptList: React.FC<PromptListProps> = ({
   return (
     <div className="flex-1 p-6 md:p-8 overflow-y-auto">
       <header className="flex justify-between items-center mb-6">
-        <div>
-          {getBreadcrumbs()}
-          <p className="text-zinc-400 mt-1">
-            {prompts.length} {prompts.length === 1 ? "prompt" : "prompts"}
-          </p>
+        <div className="flex items-center gap-4">
+          <button onClick={onToggleSidebar} className="md:hidden">
+            <Menu className="w-6 h-6 text-white" />
+          </button>
+          <div>
+            {getBreadcrumbs()}
+            <p className="text-zinc-400 mt-1">
+              {prompts.length} {prompts.length === 1 ? "prompt" : "prompts"}
+            </p>
+          </div>
         </div>
 
         <button
