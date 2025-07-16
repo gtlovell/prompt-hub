@@ -1,103 +1,357 @@
-import Image from "next/image";
+"use client";
+
+import React, { useState, useMemo, useCallback, useEffect } from "react";
+import Sidebar from "../components/Sidebar";
+import PromptList from "../components/PromptList";
+import PromptEditorModal from "../components/PromptEditorModal";
+import ProjectEditorModal from "../components/ProjectEditorModal";
+import FolderEditorModal from "../components/FolderEditorModal";
+import FeedbackModal from "../components/FeedbackModal";
+import {
+  getProjects,
+  createPrompt,
+  updatePrompt,
+  deletePrompt,
+  createProject,
+  createFolder,
+  updateFolder,
+  deleteFolder,
+  getAllFolders,
+  getAllTags,
+  getAllPrompts,
+} from "../services/indexedDBService";
+import type { Project, Folder, Prompt, Tag } from "../types";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [prompts, setPrompts] = useState<Prompt[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [loading, setLoading] = useState(true);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    null
+  );
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
+  const [showingAllPrompts, setShowingAllPrompts] = useState(false);
+
+  const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  const [isProjectModalOpen, setProjectModalOpen] = useState(false);
+  const [isFeedbackModalOpen, setFeedbackModalOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      setLoading(true);
+      const projectsData = await getProjects();
+      setProjects(projectsData);
+      if (projectsData.length > 0) {
+        setSelectedProjectId(projectsData[0].id);
+      } else {
+        // Create a default project if none exist
+        const newProject = await createProject({
+          name: "My First Project",
+          description: "A default project",
+          color: "bg-blue-500",
+        });
+        setProjects([newProject]);
+        setSelectedProjectId(newProject.id);
+      }
+      setLoading(false);
+    };
+    fetchProjects();
+  }, []);
+
+  useEffect(() => {
+    const fetchFolders = async () => {
+      const foldersData = await getAllFolders();
+      setFolders(foldersData);
+    };
+    fetchFolders();
+  }, []);
+
+  useEffect(() => {
+    const fetchTags = async () => {
+      const tagsData = await getAllTags();
+      setTags(tagsData);
+    };
+    fetchTags();
+  }, []);
+
+  useEffect(() => {
+    const fetchPrompts = async () => {
+      setLoading(true);
+      const promptsData = await getAllPrompts();
+      setPrompts(promptsData);
+      setLoading(false);
+    };
+    fetchPrompts();
+  }, []);
+
+  const selectedProject = useMemo(
+    () => projects.find((p) => p.id === selectedProjectId) || null,
+    [projects, selectedProjectId]
+  );
+  const selectedFolder = useMemo(
+    () => folders.find((f) => f.id === selectedFolderId) || null,
+    [folders, selectedFolderId]
+  );
+
+  const filteredPrompts = useMemo(() => {
+    if (showingAllPrompts) {
+      return prompts.filter((prompt) => {
+        const hasTag =
+          selectedTagId === null ? true : prompt.tags.includes(selectedTagId);
+        return hasTag;
+      });
+    }
+
+    if (!selectedProjectId) return [];
+
+    return prompts.filter((prompt) => {
+      const inProject = prompt.project_id === selectedProjectId;
+      const inFolder =
+        selectedFolderId === null
+          ? true
+          : prompt.folder_id === selectedFolderId;
+      const hasTag =
+        selectedTagId === null ? true : prompt.tags.includes(selectedTagId);
+      return inProject && inFolder && hasTag;
+    });
+  }, [
+    prompts,
+    selectedProjectId,
+    selectedFolderId,
+    selectedTagId,
+    showingAllPrompts,
+  ]);
+
+  const handleSelectProject = useCallback((projectId: string) => {
+    setSelectedProjectId(projectId);
+    setSelectedFolderId(null);
+    setShowingAllPrompts(false);
+  }, []);
+
+  const handleSelectFolder = useCallback((folderId: string | null) => {
+    setSelectedFolderId(folderId);
+    setShowingAllPrompts(false);
+  }, []);
+
+  const handleSelectTag = useCallback((tagId: string | null) => {
+    setSelectedTagId(tagId);
+  }, []);
+
+  const handleShowAllPrompts = useCallback(() => {
+    setShowingAllPrompts(true);
+    setSelectedProjectId(null);
+    setSelectedFolderId(null);
+  }, []);
+
+  const handleSelectPrompt = (prompt: Prompt) => {
+    setEditingPrompt(prompt);
+  };
+
+  const handleAddProject = () => {
+    setProjectModalOpen(true);
+  };
+
+  const handleEditFolder = (folder: Folder) => {
+    setEditingFolder(folder);
+  };
+
+  const handleCloseModal = () => {
+    setEditingPrompt(null);
+    setProjectModalOpen(false);
+    setEditingFolder(null);
+    setFeedbackModalOpen(false);
+  };
+
+  const handleCreatePrompt = () => {
+    if (!selectedProjectId && !showingAllPrompts) return;
+
+    const newPrompt: Omit<
+      Prompt,
+      "id" | "created_at" | "versions" | "current_version_id"
+    > = {
+      project_id: selectedProjectId || projects[0].id,
+      folder_id: selectedFolderId,
+      title: "",
+      tags: [],
+      is_favorite: false,
+    };
+
+    setEditingPrompt(newPrompt as unknown as Prompt);
+  };
+
+  const handleCreateFolder = async () => {
+    if (!selectedProjectId) return;
+    const newFolder = await createFolder({
+      project_id: selectedProjectId,
+      name: "New Folder",
+      parent_folder_id: null,
+    });
+    setFolders((prevFolders) => [...prevFolders, newFolder]);
+  };
+
+  const handleSaveProject = async (project: Omit<Project, "id">) => {
+    const newProject = await createProject(project);
+    setProjects((prevProjects) => [...prevProjects, newProject]);
+    setSelectedProjectId(newProject.id);
+  };
+
+  const handleSavePrompt = async (updatedPrompt: Prompt, newTags: Tag[]) => {
+    setLoading(true);
+    if (updatedPrompt.created_at) {
+      const savedPrompt = await updatePrompt(updatedPrompt);
+      setPrompts((prevPrompts) =>
+        prevPrompts.map((p) => (p.id === savedPrompt.id ? savedPrompt : p))
+      );
+    } else {
+      const newPromptData: Omit<
+        Prompt,
+        "id" | "created_at" | "versions" | "current_version_id"
+      > & { content: string } = {
+        project_id: updatedPrompt.project_id,
+        folder_id: updatedPrompt.folder_id,
+        title: updatedPrompt.title,
+        tags: updatedPrompt.tags,
+        is_favorite: updatedPrompt.is_favorite,
+        content: updatedPrompt.versions[0].content,
+      };
+      const newPrompt = await createPrompt(newPromptData);
+      setPrompts((prevPrompts) => [...prevPrompts, newPrompt]);
+    }
+
+    setTags(newTags);
+    setLoading(false);
+    handleCloseModal();
+  };
+
+  const handleDeletePrompt = async (promptId: string) => {
+    setLoading(true);
+    await deletePrompt(promptId);
+    setPrompts((prev) => prev.filter((p) => p.id !== promptId));
+    setLoading(false);
+    handleCloseModal();
+  };
+
+  const handleSaveFolder = async (folder: Folder) => {
+    const savedFolder = await updateFolder(folder);
+    setFolders((prev) =>
+      prev.map((f) => (f.id === savedFolder.id ? savedFolder : f))
+    );
+    handleCloseModal();
+  };
+
+  const handleDeleteFolder = async (folderId: string) => {
+    await deleteFolder(folderId);
+    setFolders((prev) => prev.filter((f) => f.id !== folderId));
+    handleCloseModal();
+  };
+
+  const handleToggleFolderFavorite = async (folder: Folder) => {
+    const updatedFolder = { ...folder, is_favorite: !folder.is_favorite };
+    setFolders((prev) =>
+      prev.map((f) => (f.id === updatedFolder.id ? updatedFolder : f))
+    );
+    await updateFolder(updatedFolder);
+  };
+
+  const handleOpenFeedbackModal = () => {
+    setFeedbackModalOpen(true);
+  };
+
+  const handleSubmitFeedback = async (message: string) => {
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message }),
+      });
+
+      if (response.ok) {
+        console.log("Feedback sent successfully");
+      } else {
+        const errorData = await response.json();
+        console.error(
+          "Failed to send feedback:",
+          errorData.error || response.statusText
+        );
+      }
+    } catch (error) {
+      console.error("Error sending feedback:", error);
+    }
+    handleCloseModal();
+  };
+
+  return (
+    <div className="h-screen w-screen bg-zinc-900 flex text-slate-200 font-sans">
+      <Sidebar
+        projects={projects}
+        folders={folders}
+        selectedProjectId={selectedProjectId}
+        onSelectProject={handleSelectProject}
+        selectedFolderId={selectedFolderId}
+        onSelectFolder={handleSelectFolder}
+        onAddProject={handleAddProject}
+        onAddFolder={handleCreateFolder}
+        onEditFolder={handleEditFolder}
+        onToggleFolderFavorite={handleToggleFolderFavorite}
+        onShowAllPrompts={handleShowAllPrompts}
+        showingAllPrompts={showingAllPrompts}
+        onOpenFeedbackModal={handleOpenFeedbackModal}
+      />
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <p>Loading...</p>
+          </div>
+        ) : (
+          <PromptList
+            prompts={filteredPrompts}
+            allTags={tags}
+            selectedProject={selectedProject}
+            selectedFolder={selectedFolder}
+            onSelectPrompt={handleSelectPrompt}
+            onCreatePrompt={handleCreatePrompt}
+            onSelectTag={handleSelectTag}
+            selectedTagId={selectedTagId}
+            showingAllPrompts={showingAllPrompts}
+          />
+        )}
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+      {editingPrompt && (
+        <PromptEditorModal
+          prompt={editingPrompt}
+          allTags={tags}
+          onClose={handleCloseModal}
+          onSave={handleSavePrompt}
+          onDelete={handleDeletePrompt}
+        />
+      )}
+
+      <ProjectEditorModal
+        isOpen={isProjectModalOpen}
+        onClose={handleCloseModal}
+        onSave={handleSaveProject}
+      />
+
+      <FolderEditorModal
+        isOpen={!!editingFolder}
+        onClose={handleCloseModal}
+        onSave={handleSaveFolder}
+        onDelete={handleDeleteFolder}
+        folder={editingFolder}
+      />
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={handleCloseModal}
+        onSubmit={handleSubmitFeedback}
+      />
     </div>
   );
 }
